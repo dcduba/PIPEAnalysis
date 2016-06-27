@@ -67,22 +67,22 @@ public final class OnTheFlyVanishingExplorer implements VanishingExplorer {
      * @throws InvalidRateException
      */
     @Override
-    public Collection<StateRateRecord> explore(ClassifiedState vanishingState, double rate)
+    public Collection<StateRecord> explore(ClassifiedState vanishingState, double rate, Collection<String> transitionNames)
             throws TimelessTrapException, InvalidRateException {
-        Deque<StateRateRecord> vanishingStack = new ArrayDeque<>();
-        vanishingStack.push(new StateRateRecord(vanishingState, rate));
+        Deque<StateRecord> vanishingStack = new ArrayDeque<>();
+        vanishingStack.push(new StateRecord(vanishingState, rate, transitionNames));
         int iterations = 0;
-        Collection<StateRateRecord> tangibleStatesFound = new LinkedList<>();
+        Collection<StateRecord> tangibleStatesFound = new LinkedList<>();
         while (!vanishingStack.isEmpty() && iterations < ALLOWED_ITERATIONS) {
-            StateRateRecord record = vanishingStack.pop();
+            StateRecord record = vanishingStack.pop();
             ClassifiedState previous = record.getState();
             for (ClassifiedState successor : explorerUtilities.getSuccessors(previous)) {
                 double successorRate = record.getRate() * probability(previous, successor);
                 if (successor.isTangible()) {
-                    tangibleStatesFound.add(new StateRateRecord(successor, successorRate));
+                    tangibleStatesFound.add(new StateRecord(successor, successorRate, transitionNames));
                 } else {
                     if (successorRate > EPSILON) {
-                        vanishingStack.push(new StateRateRecord(successor, successorRate));
+                        vanishingStack.push(new StateRecord(successor, successorRate, transitionNames));
                     }
                 }
             }

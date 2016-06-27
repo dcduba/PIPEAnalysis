@@ -4,6 +4,7 @@ import pipe.reachability.algorithm.*;
 import uk.ac.imperial.io.StateProcessor;
 import uk.ac.imperial.pipe.exceptions.InvalidRateException;
 import uk.ac.imperial.state.ClassifiedState;
+import uk.ac.imperial.utils.Pair;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -44,19 +45,21 @@ public final class SequentialStateSpaceExplorer extends AbstractStateSpaceExplor
         int iterations = 0;
         while (!explorationQueue.isEmpty() && explorerUtilities.canExploreMore(stateCount)) {
             ClassifiedState state = explorationQueue.poll();
-            successorRates.clear();
+            successors.clear();
             for (ClassifiedState successor : explorerUtilities.getSuccessors(state)) {
                 double rate = explorerUtilities.rate(state, successor);
+                Collection<String> transitionNames = explorerUtilities.transitionNames(state, successor);
+                Pair<Double, Collection<String>> pair = new Pair<>(rate, transitionNames);
                 if (successor.isTangible()) {
-                    registerStateTransition(successor, rate);
+                	registerStateTransition(successor, pair);
                 } else {
-                    Collection<StateRateRecord> explorableStates = vanishingExplorer.explore(successor, rate);
-                    for (StateRateRecord record : explorableStates) {
-                        registerStateTransition(record.getState(), record.getRate());
+                    Collection<StateRecord> explorableStates = vanishingExplorer.explore(successor, pair.getLeft(), pair.getRight());
+                    for (StateRecord record : explorableStates) {
+                        registerStateTransition(record.getState(), record.getPair());
                     }
                 }
             }
-            writeStateTransitions(state, successorRates);
+            writeStateTransitions(state, successors);
             explorerUtilities.clear();
             iterations++;
         }

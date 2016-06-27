@@ -6,10 +6,12 @@ import pipe.reachability.algorithm.TimelessTrapException;
 import pipe.reachability.algorithm.VanishingExplorer;
 import uk.ac.imperial.io.StateProcessor;
 import uk.ac.imperial.state.ClassifiedState;
+import uk.ac.imperial.utils.Pair;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.Collection;
 
 /**
  * This explores individual states on seperate threads and then joins
@@ -57,7 +59,7 @@ public final class IndividualParallelStateSpaceExplorer extends AbstractStateSpa
         int elemsAtNextLevel = 0;
         while (!explorationQueue.isEmpty()) {
 
-            Map<ClassifiedState, Future<Map<ClassifiedState, Double>>> successorFutures = new HashMap<>();
+            Map<ClassifiedState, Future<Map<ClassifiedState, Pair<Double, Collection<String>>>>> successorFutures = new HashMap<>();
             CountDownLatch latch = new CountDownLatch(elemsAtCurrentLevel);
             for (int i = 0; i < elemsAtCurrentLevel; i++) {
                 ClassifiedState state = explorationQueue.poll();
@@ -66,16 +68,19 @@ public final class IndividualParallelStateSpaceExplorer extends AbstractStateSpa
             }
 
             latch.await();
-            for (Map.Entry<ClassifiedState, Future<Map<ClassifiedState, Double>>> entry : successorFutures.entrySet()) {
-                Future<Map<ClassifiedState, Double>> future = entry.getValue();
-                successorRates.clear();
+            for (Map.Entry<ClassifiedState, Future<Map<ClassifiedState, Pair<Double, Collection<String>>>>> entry : successorFutures.entrySet()) {
+                Future<Map<ClassifiedState, Pair<Double, Collection<String>>>> future = entry.getValue();
+                successors.clear();
 
                 try {
-                    Map<ClassifiedState, Double> successors = future.get();
-                    for (Map.Entry<ClassifiedState, Double> successorEntry : successors.entrySet()) {
+                    Map<ClassifiedState, Pair<Double, Collection<String>>> successorsData = future.get();
+                    for (Map.Entry<ClassifiedState, Pair<Double, Collection<String>>> successorEntry : successorsData.entrySet()) {
                         ClassifiedState successor = successorEntry.getKey();
-                        double rate = successorEntry.getValue();
-                        registerStateRate(successor, rate);
+                        double rate = successorEntry.getValue().getLeft();
+                        Collection<String> transitionNames = successorEntry.getValue().getRight();
+                        
+                        Pair<Double, Collection<String>> pair = new Pair<>(rate, transitionNames);
+                        registerState(successor, pair);
                         if (!explored.contains(successor)) {
                             elemsAtNextLevel++;
                             explorationQueue.add(successor);
@@ -86,7 +91,7 @@ public final class IndividualParallelStateSpaceExplorer extends AbstractStateSpa
                     throw new TimelessTrapException(ee);
                 }
                 ClassifiedState state = entry.getKey();
-                writeStateTransitions(state, successorRates);
+                writeStateTransitions(state, successors);
             }
             elemsAtCurrentLevel = elemsAtNextLevel;
             elemsAtNextLevel = 0;

@@ -1,11 +1,12 @@
 package pipe.reachability.algorithm.parallel;
 
 import pipe.reachability.algorithm.ExplorerUtilities;
-import pipe.reachability.algorithm.StateRateRecord;
+import pipe.reachability.algorithm.StateRecord;
 import pipe.reachability.algorithm.TimelessTrapException;
 import pipe.reachability.algorithm.VanishingExplorer;
 import uk.ac.imperial.pipe.exceptions.InvalidRateException;
 import uk.ac.imperial.state.ClassifiedState;
+import uk.ac.imperial.utils.Pair;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -19,7 +20,7 @@ import java.util.concurrent.CountDownLatch;
  * of the state.
  *
  */
-public final class ParallelStateExplorer implements Callable<Map<ClassifiedState, Double>> {
+public final class ParallelStateExplorer implements Callable<Map<ClassifiedState, Pair<Double, Collection<String>>>> {
 
     /**
      * Count down latch, this value is decremented once the call method
@@ -58,32 +59,39 @@ public final class ParallelStateExplorer implements Callable<Map<ClassifiedState
      * @return successors
      */
     @Override
-    public Map<ClassifiedState, Double> call() throws TimelessTrapException, InvalidRateException {
+    public Map<ClassifiedState, Pair<Double, Collection<String>>> call() throws TimelessTrapException, InvalidRateException {
         try {
-            Map<ClassifiedState, Double> stateRates = new HashMap<>();
+            Map<ClassifiedState, Pair<Double, Collection<String>>> states = new HashMap<>();
             for (ClassifiedState successor : explorerUtilities.getSuccessors(state)) {
                 double rate = explorerUtilities.rate(state, successor);
+                Collection<String> transitionNames = explorerUtilities.transitionNames(state, successor);
+                
                 if (successor.isTangible()) {
-                    registerStateRate(successor, rate, stateRates);
+                    Pair<Double, Collection<String>> pair = new Pair<>(rate, transitionNames);
+                	registerState(successor, pair, states);
                 } else {
-                    Collection<StateRateRecord> explorableStates = vanishingExplorer.explore(successor, rate);
-                    for (StateRateRecord record : explorableStates) {
-                        registerStateRate(record.getState(), record.getRate(), stateRates);
+                    Collection<StateRecord> explorableStates = vanishingExplorer.explore(successor, rate, transitionNames);
+                    for (StateRecord record : explorableStates) {
+                    	registerState(record.getState(), record.getPair(), states);
                     }
                 }
             }
-            return stateRates;
+            return states;
         } finally {
             latch.countDown();
         }
     }
-
-    private void registerStateRate(ClassifiedState successor, double rate, Map<ClassifiedState, Double> stateRates) {
-        if (stateRates.containsKey(successor)) {
-            double previousRate = stateRates.get(successor);
-            stateRates.put(successor, previousRate + rate);
-        } else {
-            stateRates.put(successor, rate);
-        }
+    
+    private void registerState(ClassifiedState successor, Pair<Double, Collection<String>> pair, Map<ClassifiedState, Pair<Double, Collection<String>>> states) {
+    	if (states.containsKey(successor)) {
+    		double rate = states.get(successor).getLeft() + pair.getLeft();
+    		Collection<String> names = states.get(successor).getRight();
+    		names.addAll(pair.getRight());
+    		
+    		Pair<Double, Collection<String>> newPair = new Pair<>(rate, names);
+    		states.put(successor, newPair);
+    	} else {
+    		states.put(successor, pair);
+    	}
     }
 }

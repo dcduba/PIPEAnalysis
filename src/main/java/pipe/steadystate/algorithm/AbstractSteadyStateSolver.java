@@ -5,6 +5,7 @@ import uk.ac.imperial.io.EntireStateReader;
 import uk.ac.imperial.io.KryoStateIO;
 import uk.ac.imperial.io.MultiStateReader;
 import uk.ac.imperial.state.Record;
+import uk.ac.imperial.utils.Pair;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Collection;
 
 /**
  * Abstract class used to solve the steady state, contains useful methods and constants
@@ -44,9 +46,9 @@ public abstract class AbstractSteadyStateSolver implements SteadyStateSolver {
         for (Record record : records) {
             Integer state = record.state;
             createAndGet(transpose, state);
-            for (Map.Entry<Integer, Double> entry : record.successors.entrySet()) {
+            for (Map.Entry<Integer, Pair<Double, Collection<String>>> entry : record.successors.entrySet()) {
                 Integer successor = entry.getKey();
-                Double rate = entry.getValue();
+                Double rate = entry.getValue().getLeft();
                 Map<Integer, Double> successors = createAndGet(transpose, successor);
                 successors.put(state, rate);
             }
@@ -187,8 +189,8 @@ public abstract class AbstractSteadyStateSolver implements SteadyStateSolver {
         for (Record record : records) {
             double rowSum = 0;
             //TODO: What if there is a self loop?
-            for (Double rate : record.successors.values()) {
-                rowSum += rate;
+            for (Pair<Double, Collection<String>> pair : record.successors.values()) {
+                rowSum += pair.getLeft();
             }
             diagonals.put(record.state, -rowSum);
         }
@@ -205,7 +207,16 @@ public abstract class AbstractSteadyStateSolver implements SteadyStateSolver {
     protected final List<Record> divide(List<Record> A, double a) {
         List<Record> results = new ArrayList<>();
         for (Record record : A) {
-            results.add(new Record(record.state, divide(a, record.successors)));
+        	Map<Integer, Double> rows = new HashMap<>();
+        	Map<Integer, Pair<Double, Collection<String>>> successors = new HashMap<>();
+        	for( Map.Entry<Integer, Pair<Double, Collection<String>>> entry : record.successors.entrySet() ) {
+        		rows.put(entry.getKey(), entry.getValue().getLeft());
+        	}
+        	rows = divide(a, rows);
+        	for( Map.Entry<Integer, Double> entry : rows.entrySet() ) {
+        		successors.put(entry.getKey(), new Pair<>(entry.getValue(), record.successors.get(entry.getKey()).getRight()));
+        	}
+            results.add(new Record(record.state, successors));
         }
         return results;
     }

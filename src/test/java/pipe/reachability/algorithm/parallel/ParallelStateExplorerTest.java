@@ -6,13 +6,15 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 import pipe.reachability.algorithm.ExplorerUtilities;
-import pipe.reachability.algorithm.StateRateRecord;
+import pipe.reachability.algorithm.StateRecord;
 import pipe.reachability.algorithm.TimelessTrapException;
 import pipe.reachability.algorithm.VanishingExplorer;
 import uk.ac.imperial.pipe.exceptions.InvalidRateException;
 import uk.ac.imperial.state.ClassifiedState;
+import uk.ac.imperial.utils.Pair;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.Map;
@@ -64,7 +66,7 @@ public class ParallelStateExplorerTest {
 
             when(explorerUtilities.rate(state, successor)).thenReturn(5.0);
 
-            when(vanishingExplorer.explore(successor, 5.0)).thenThrow(new TimelessTrapException());
+            when(vanishingExplorer.explore(successor, 5.0, new ArrayList<String>())).thenThrow(new TimelessTrapException());
 
             explorer.call();
         } catch (TimelessTrapException e) {
@@ -81,10 +83,10 @@ public class ParallelStateExplorerTest {
 
         when(explorerUtilities.rate(state, successor)).thenReturn(5.0);
 
-        Map<ClassifiedState, Double> results = explorer.call();
+        Map<ClassifiedState, Pair<Double, Collection<String>>> results = explorer.call();
 
         assertEquals(1, results.size());
-        assertEquals(5.0, results.get(successor), 0.001);
+        assertEquals(5.0, results.get(successor).getLeft(), 0.001);
     }
 
 
@@ -97,13 +99,13 @@ public class ParallelStateExplorerTest {
         when(explorerUtilities.rate(state, successor)).thenReturn(5.0);
 
         ClassifiedState vanishingSuccessor = mock(ClassifiedState.class);
-        StateRateRecord rateRecord = new StateRateRecord(vanishingSuccessor, 2.5);
-        when(vanishingExplorer.explore(successor, 5.0)).thenReturn(Arrays.asList(rateRecord));
+        StateRecord rateRecord = new StateRecord(vanishingSuccessor, 2.5, new ArrayList<String>());
+        when(vanishingExplorer.explore(successor, 5.0, new ArrayList<String>())).thenReturn(Arrays.asList(rateRecord));
 
-        Map<ClassifiedState, Double> results = explorer.call();
+        Map<ClassifiedState, Pair<Double, Collection<String>>> results = explorer.call();
 
         assertEquals(1, results.size());
-        assertEquals(2.5, results.get(vanishingSuccessor), 0.001);
+        assertEquals(2.5, results.get(vanishingSuccessor).getLeft(), 0.001);
     }
 
 
@@ -117,13 +119,13 @@ public class ParallelStateExplorerTest {
         when(explorerUtilities.rate(state, successor)).thenReturn(5.0);
 
         ClassifiedState vanishingSuccessor = mock(ClassifiedState.class);
-        StateRateRecord rateRecord = new StateRateRecord(vanishingSuccessor, 2.5);
-        StateRateRecord duplicateRateRecord = new StateRateRecord(vanishingSuccessor, 9.5);
-        when(vanishingExplorer.explore(successor, 5.0)).thenReturn(Arrays.asList(rateRecord, duplicateRateRecord));
+        StateRecord rateRecord = new StateRecord(vanishingSuccessor, 2.5, new ArrayList<String>());
+        StateRecord duplicateRateRecord = new StateRecord(vanishingSuccessor, 9.5, new ArrayList<String>());
+        when(vanishingExplorer.explore(successor, 5.0, new ArrayList<String>())).thenReturn(Arrays.asList(rateRecord, duplicateRateRecord));
 
-        Map<ClassifiedState, Double> results = explorer.call();
+        Map<ClassifiedState, Pair<Double, Collection<String>>> results = explorer.call();
 
         assertEquals(1, results.size());
-        assertEquals(12.0, results.get(vanishingSuccessor), 0.001);
+        assertEquals(12.0, results.get(vanishingSuccessor).getLeft(), 0.001);
     }
 }

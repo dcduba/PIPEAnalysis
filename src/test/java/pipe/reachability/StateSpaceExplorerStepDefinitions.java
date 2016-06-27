@@ -13,6 +13,7 @@ import uk.ac.imperial.pipe.parsers.UnparsableException;
 import uk.ac.imperial.state.ClassifiedState;
 import uk.ac.imperial.state.Record;
 import uk.ac.imperial.utils.StateUtils;
+import uk.ac.imperial.utils.Pair;
 import utils.Utils;
 
 import javax.xml.bind.JAXBException;
@@ -21,6 +22,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.Collection;
+import java.util.ArrayList;
 
 import static org.junit.Assert.*;
 
@@ -33,7 +36,7 @@ public class StateSpaceExplorerStepDefinitions {
     /**
      * State space exploration results
      */
-    private Map<Integer, Map<Integer, Double>> results = new HashMap<>();
+    private Map<Integer, Map<Integer, Pair<Double, Collection<String>>>> results = new HashMap<>();
 
     /**
      * Record of state to integer representation
@@ -71,7 +74,7 @@ public class StateSpaceExplorerStepDefinitions {
 
 
     @Given("^I use the Petri net located at (/[\\w/]+.xml)$")
-    public void I_Use_the_Petri_net_located_at(String path) throws JAXBException, UnparsableException, FileNotFoundException {
+    public void I_use_the_Petri_net_located_at(String path) throws JAXBException, UnparsableException, FileNotFoundException {
         petriNet = Utils.readPetriNet(path);
     }
 
@@ -144,7 +147,7 @@ public class StateSpaceExplorerStepDefinitions {
 
         int stateId = stateMappings.get(state);
         int successorId = stateMappings.get(successor);
-        Map<Integer, Double> successors = results.get(stateId);
+        Map<Integer, Pair<Double, Collection<String>>> successors = results.get(stateId);
         assertTrue(successors.containsKey(successorId));
     }
 
@@ -152,8 +155,8 @@ public class StateSpaceExplorerStepDefinitions {
     public void rate(double rate) {
         int stateId = stateMappings.get(state);
         int successorId = stateMappings.get(successor);
-        Map<Integer, Double> successors = results.get(stateId);
-        Double actualRate = successors.get(successorId);
+        Map<Integer, Pair<Double, Collection<String>>> successors = results.get(stateId);
+        Double actualRate = successors.get(successorId).getLeft();
         assertNotNull("State transition not contained in results", actualRate);
         assertEquals("State transition rate not correct", rate, actualRate, 0.00001);
     }

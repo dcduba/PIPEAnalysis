@@ -4,6 +4,7 @@ import pipe.reachability.algorithm.*;
 import uk.ac.imperial.io.StateProcessor;
 import uk.ac.imperial.pipe.exceptions.InvalidRateException;
 import uk.ac.imperial.state.ClassifiedState;
+import uk.ac.imperial.utils.Pair;
 
 import java.io.IOException;
 import java.util.*;
@@ -46,7 +47,7 @@ public final class MassiveParallelStateSpaceExplorer extends AbstractStateSpaceE
     protected ExecutorService executorService;
 
     private Queue<ClassifiedState> sharedIterationQueue = new ConcurrentLinkedQueue<>();
-    private Map<ClassifiedState, Map<ClassifiedState, Double>> iterationTransitions = new ConcurrentHashMap<>();
+    private Map<ClassifiedState, Map<ClassifiedState, Pair<Double, Collection<String>>>> iterationTransitions = new ConcurrentHashMap<>();
     private Map<ClassifiedState, Boolean> sharedHashSeen = new ConcurrentHashMap<>();
 
 
@@ -109,7 +110,7 @@ public final class MassiveParallelStateSpaceExplorer extends AbstractStateSpaceE
 
             markAsExplored(sharedHashSeen.keySet());
 
-            for (Map.Entry<ClassifiedState, Map<ClassifiedState, Double>> entry : iterationTransitions.entrySet()) {
+            for (Map.Entry<ClassifiedState, Map<ClassifiedState, Pair<Double, Collection<String>>>> entry : iterationTransitions.entrySet()) {
                 writeStateTransitions(entry.getKey(), entry.getValue());
             }
 
@@ -158,20 +159,24 @@ public final class MassiveParallelStateSpaceExplorer extends AbstractStateSpaceE
                 if (state == null) {
                     return null;
                 }
-                Map<ClassifiedState, Double> successorRates = new HashMap<>();
+                Map<ClassifiedState, Pair<Double, Collection<String>>> successorData = new HashMap<>();
                 for (ClassifiedState successor : explorerUtilities.getSuccessors(state)) {
                     double rate = explorerUtilities.rate(state, successor);
+                    Collection<String> transitionNames = explorerUtilities.transitionNames(state, successor);
+                    
                     if (successor.isTangible()) {
-                        registerStateRate(successor, rate, successorRates);
+                        Pair<Double, Collection<String>> pair = new Pair<>(rate, transitionNames);
+                    	registerState(successor, pair, successorData);
                         if (!seen(successor)) {
                             sharedIterationQueue.add(successor);
                             addToSharedSeen(successor);
 //                            seen.add(successor);
                         }
                     } else {
-                        Collection<StateRateRecord> explorableStates = vanishingExplorer.explore(successor, rate);
-                        for (StateRateRecord record : explorableStates) {
-                            registerStateRate(record.getState(), record.getRate(), successorRates);
+                        Collection<StateRecord> explorableStates = vanishingExplorer.explore(successor, rate, transitionNames);
+                        for (StateRecord record : explorableStates) {
+                            Pair<Double, Collection<String>> pair = new Pair<>(record.getRate(), record.getNames());
+                            registerState(record.getState(), pair, successorData);
                             if (!seen(record.getState())) {
                                 sharedIterationQueue.add(record.getState());
                                 addToSharedSeen(record.getState());
@@ -180,7 +185,7 @@ public final class MassiveParallelStateSpaceExplorer extends AbstractStateSpaceE
                         }
                     }
                 }
-                writeStateTransitions(state, successorRates);
+                writeStateTransitions(state, successorData);
             }
             return null;
         }
@@ -190,22 +195,41 @@ public final class MassiveParallelStateSpaceExplorer extends AbstractStateSpaceE
         }
 
         /**
-         * Puts the successor and rate into the successor rates map.
-         * If an entry already exists for the state then the rate is
-         * summed within the rate.
+         * Merges old data on successors with new data in pair
+         * @param successor
+         * @param pair pair of data with new data
+         * @param successorData holder of the old data
          */
+        private void registerState(ClassifiedState successor, Pair<Double, Collection<String>> pair, Map<ClassifiedState, Pair<Double, Collection<String>>> successorData) {
+        	if(successorData.containsKey(successor)) {
+        		Pair<Double, Collection<String>> oldPair = successorData.get(successor);
+        		double rate = oldPair.getLeft() + pair.getLeft();
+        		Collection<String> oldTransitionNames = oldPair.getRight();
+        		Collection<String> newTransitionNames = pair.getRight();
+        		for(String name : newTransitionNames) {
+        			if(!oldTransitionNames.contains(name)) {
+        				oldTransitionNames.add(name);
+        			}
+        		}
+        		pair = new Pair<>(rate, oldTransitionNames);
+        	}
+        	
+        	successorData.put(successor, pair);
+        }
+        
         /**
+         * Puts the successor and names of the associated transitions into a map
          * @param successor
          * @param rate
          * @param successorRates
          */
-        private void registerStateRate(ClassifiedState successor, double rate,
-                                       Map<ClassifiedState, Double> successorRates) {
-            if (successorRates.containsKey(successor)) {
-                double previousRate = successorRates.get(successor);
-                successorRates.put(successor, previousRate + rate);
+        @Deprecated
+        private void registerTransitionNames(ClassifiedState successor, Collection<String> names,
+                                       Map<ClassifiedState, Collection<String>> successorNames) {
+            if (successorNames.containsKey(successor)) {
+                successorNames.get(successor).addAll(names);
             } else {
-                successorRates.put(successor, rate);
+                successorNames.put(successor, names);
             }
         }
 
@@ -221,13 +245,12 @@ public final class MassiveParallelStateSpaceExplorer extends AbstractStateSpaceE
          * Puts the state and its rates into the transitions data structure
          *
          * @param state
-         * @param successorRates
+         * @param transitions
          */
-        private void writeStateTransitions(ClassifiedState state, Map<ClassifiedState, Double> successorRates) {
+        private void writeStateTransitions(ClassifiedState state, Map<ClassifiedState, Pair<Double, Collection<String>>> transitions) {
             if (!iterationTransitions.containsKey(state)) {
-                iterationTransitions.put(state, successorRates);
+                iterationTransitions.put(state, transitions);
             }
         }
     }
-
 }

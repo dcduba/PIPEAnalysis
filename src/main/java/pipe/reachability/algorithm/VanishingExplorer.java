@@ -20,6 +20,6 @@ public interface VanishingExplorer {
      * @return Collection of states found to explore whilst processing the vanishing state
      * @throws TimelessTrapException
      */
-    Collection<StateRateRecord> explore(ClassifiedState vanishingState, double rate)
+    Collection<StateRecord> explore(ClassifiedState vanishingState, double rate, Collection<String> transitionNames)
             throws TimelessTrapException, InvalidRateException;
 }

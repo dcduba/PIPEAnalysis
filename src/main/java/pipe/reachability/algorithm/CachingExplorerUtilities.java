@@ -106,6 +106,22 @@ public abstract class CachingExplorerUtilities implements ExplorerUtilities {
         Collection<Transition> transitionsToSuccessor = getTransitions(state, successor);
         return getWeightOfTransitions(state, transitionsToSuccessor);
     }
+    
+    /**
+     * @param state
+     * @param successor
+     * @return the names of the transitions that can be fired from this state
+     */
+    public final Collection<String> transitionNames(ClassifiedState state, ClassifiedState successor) {
+    	Collection<Transition> transitionsToSuccessor = getTransitions(state, successor);
+    	Collection<String> names = new ArrayList<>();
+    	
+    	for(Transition transition : transitionsToSuccessor) {
+    		names.add(transition.getId());
+    	}
+    	
+    	return names;
+    }
 
 
     /**

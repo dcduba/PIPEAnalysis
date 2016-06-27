@@ -5,6 +5,7 @@ import uk.ac.imperial.io.StateProcessor;
 import uk.ac.imperial.pipe.exceptions.InvalidRateException;
 import uk.ac.imperial.state.ClassifiedState;
 import uk.ac.imperial.utils.ExploredSet;
+import uk.ac.imperial.utils.Pair;
 
 import java.io.IOException;
 import java.util.*;
@@ -55,7 +56,7 @@ public abstract class AbstractStateSpaceExplorer implements StateSpaceExplorer {
      * all successors of a state. It is then used to write the records to the stateWriter
      * only once all successors have been processed.
      */
-    protected final Map<ClassifiedState, Double> successorRates = new HashMap<>();
+    protected final Map<ClassifiedState, Pair<Double, Collection<String>>> successors = new HashMap<>();
 
     /**
      * Performs useful state calculations
@@ -125,9 +126,9 @@ public abstract class AbstractStateSpaceExplorer implements StateSpaceExplorer {
             explorationQueue.add(initialState);
             markAsExplored(initialState);
         } else {
-            Collection<StateRateRecord> explorableStates = vanishingExplorer.explore(initialState, 1.0);
-            for (StateRateRecord record : explorableStates) {
-                registerStateTransition(record.getState(), record.getRate());
+            Collection<StateRecord> explorableStates = vanishingExplorer.explore(initialState, 1.0, new ArrayList<String>());
+            for (StateRecord record : explorableStates) {
+                registerStateTransition(record.getState(), record.getPair());
             }
         }
 
@@ -161,19 +162,12 @@ public abstract class AbstractStateSpaceExplorer implements StateSpaceExplorer {
         }
     }
 
-    /**
-     * registers a transition to the successor in stateRecords and
-     * adds the successor to the exploredQueue if it is not already contained in it.
-     *
-     * @param successor state that is possible via an enabled transition from state
-     * @param rate      rate at which state transitions to successor
-     */
-    protected final void registerStateTransition(ClassifiedState successor, double rate) {
-        registerStateRate(successor, rate);
-        if (!explored.contains(successor)) {
-            explorationQueue.add(successor);
-            markAsExplored(successor);
-        }
+    protected final void registerStateTransition(ClassifiedState successor, Pair<Double, Collection<String>> pair) {
+    	registerState(successor, pair);
+    	if (!explored.contains(successor)) {
+    		explorationQueue.add(successor);
+    		markAsExplored(successor);
+    	}
     }
 
     /**
@@ -194,13 +188,18 @@ public abstract class AbstractStateSpaceExplorer implements StateSpaceExplorer {
      * @param successor key to successor rates
      * @param rate      rate at which successor is entered via some transition
      */
-    protected final void registerStateRate(ClassifiedState successor, double rate) {
-        if (successorRates.containsKey(successor)) {
-            double previousRate = successorRates.get(successor);
-            successorRates.put(successor, previousRate + rate);
-        } else {
-            successorRates.put(successor, rate);
-        }
+    protected final void registerState(ClassifiedState successor, Pair<Double, Collection<String>> pair) {
+    	if (successors.containsKey(successor)) {
+    		Pair<Double, Collection<String>> oldPair = successors.get(successor);
+    		for( String name : oldPair.getRight() ) {
+    			if( !pair.getRight().contains(name) ) {
+    				pair.getRight().add(name);
+    			}
+    		}
+    		pair = new Pair<>(oldPair.getLeft() + pair.getLeft(), pair.getRight());
+    	}
+    	
+    	successors.put(successor, pair);
     }
 
     /**
@@ -227,28 +226,30 @@ public abstract class AbstractStateSpaceExplorer implements StateSpaceExplorer {
      * disk and must be dealt with accordingly.
      *
      * @param state          the current state that successors belong to
-     * @param successorRates
+     * @param successorData  rates and transition names for successors
      */
-    protected final void writeStateTransitions(ClassifiedState state, Map<ClassifiedState, Double> successorRates) {
-        Map<Integer, Double> transitions = getIntegerTransitions(successorRates);
+    protected final void writeStateTransitions(ClassifiedState state, Map<ClassifiedState, Pair<Double, Collection<String>>> successorData) {
+        Map<Integer, Pair<Double, Collection<String>>> transitions = getIntegerTransitions(successorData);
         int stateId = explored.getId(state);
         stateProcessor.processTransitions(stateId, transitions);
-        processedCount += successorRates.size();
+        processedCount += successorData.size();
     }
 
     /**
      * Modifies the successorRates map to replace the key with it's integer representation
      * that is stored in the explored set
      *
-     * @param successorRates
-     * @return a map of the successors integer id to the successor rate
+     * @param successorData  rates and transition names for successors
+     * @return a map where the key state is replaced by its corresponding id
      */
-    private Map<Integer, Double> getIntegerTransitions(Map<ClassifiedState, Double> successorRates) {
-        Map<Integer, Double> transitions = new HashMap<>();
-        for (Map.Entry<ClassifiedState, Double> entry : successorRates.entrySet()) {
+    private Map<Integer, Pair<Double, Collection<String>>> getIntegerTransitions(Map<ClassifiedState, Pair<Double, Collection<String>>> successorData) {
+    	Map<Integer, Pair<Double, Collection<String>>> transitions = new HashMap<>();
+        for (Map.Entry<ClassifiedState, Pair<Double, Collection<String>>> entry : successorData.entrySet()) {
             int id = explored.getId(entry.getKey());
             transitions.put(id, entry.getValue());
         }
-        return transitions;
+        return transitions;    	
     }
+    
+    
 }

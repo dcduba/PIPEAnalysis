@@ -18,8 +18,8 @@ public final class SimpleVanishingExplorer implements VanishingExplorer {
      * @throws TimelessTrapException
      */
     @Override
-    public Collection<StateRateRecord> explore(ClassifiedState vanishingState, double rate)
+    public Collection<StateRecord> explore(ClassifiedState vanishingState, double rate, Collection<String> transitionNames)
             throws TimelessTrapException {
-        return Arrays.asList(new StateRateRecord(vanishingState, rate));
+        return Arrays.asList(new StateRecord(vanishingState, rate, transitionNames));
     }
 }

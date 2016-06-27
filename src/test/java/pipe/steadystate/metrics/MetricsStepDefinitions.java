@@ -47,7 +47,7 @@ public class MetricsStepDefinitions {
 
 
     @Given("^I use the Petri net located at (/[\\w/]+.xml)$")
-    public void I_Use_the_Petri_net_located_at(String path) throws JAXBException, UnparsableException, FileNotFoundException {
+    public void I_use_the_Petri_net_located_at(String path) throws JAXBException, UnparsableException, FileNotFoundException {
         petriNet = Utils.readPetriNet(path);
     }
 

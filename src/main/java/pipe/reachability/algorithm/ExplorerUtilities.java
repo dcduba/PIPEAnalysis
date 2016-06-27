@@ -43,6 +43,14 @@ public interface ExplorerUtilities {
      * of the enabled transition
      */
     double rate(ClassifiedState state, ClassifiedState successor) throws InvalidRateException;
+    
+    /**
+     * 
+     * @param state current state
+     * @param successor next state
+     * @return names of transitions between the current state to the next state
+     */
+    Collection<String> transitionNames(ClassifiedState state, ClassifiedState successor);
 
     /**
      *

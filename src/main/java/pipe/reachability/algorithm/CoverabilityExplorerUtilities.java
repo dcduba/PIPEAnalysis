@@ -214,6 +214,16 @@ public final class CoverabilityExplorerUtilities implements ExplorerUtilities {
     public double rate(ClassifiedState state, ClassifiedState successor) throws InvalidRateException {
         return explorerUtilities.rate(state, successor);
     }
+    
+    /**
+     * @param state
+     * @param successor
+     * @return names of the transitions between this state and the next state
+     */
+    @Override
+    public Collection<String> transitionNames(ClassifiedState state, ClassifiedState successor) {
+    	return explorerUtilities.transitionNames(state, successor);
+    }
 
     /**
      * @return the underlying state of the Petri net
